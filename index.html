@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AKATSUKI 勝尾寺合宿 GPS認証</title>
+
+<style>
+body{
+    font-family: sans-serif;
+    background:#f5f6fa;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-height:100vh;
+    margin:0;
+}
+
+.card{
+    width:90%;
+    max-width:500px;
+    background:white;
+    padding:30px;
+    border-radius:12px;
+    text-align:center;
+    box-shadow:0 0 15px rgba(0,0,0,0.1);
+}
+
+h2{
+    margin-top:0;
+}
+
+button{
+    background:#0066ff;
+    color:white;
+    border:none;
+    padding:12px 24px;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:16px;
+}
+
+button:hover{
+    opacity:0.9;
+}
+
+select{
+    padding:10px;
+    border-radius:6px;
+    font-size:16px;
+}
+
+.success{
+    color:green;
+    font-weight:bold;
+}
+
+.error{
+    color:red;
+    font-weight:bold;
+}
+
+.info{
+    color:#333;
+}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+
+    <h2>AKATSUKI 勝尾寺合宿</h2>
+
+    <p>
+        現地参加確認のため、<br>
+        GPS認証を行います。
+    </p>
+
+    <select id="role">
+        <option value="student">学生参加者</option>
+        <option value="pm">PM</option>
+    </select>
+
+    <br><br>
+
+    <button onclick="checkLocation()">
+        GPS認証を開始
+    </button>
+
+    <br><br>
+
+    <div id="result"></div>
+
+</div>
+
+<script>
+
+// =========================
+// 勝尾寺座標
+// =========================
+const venueLat = 34.8555;
+const venueLng = 135.4708;
+
+// =========================
+// 許可範囲（500m）
+// =========================
+const ALLOW_DISTANCE = 500;
+
+// =========================
+// AWERO URL
+// 実際のURLに変更してください
+// =========================
+const STUDENT_URL =
+"https://awero.example.com/student";
+
+const PM_URL =
+"https://awero.example.com/pm";
+
+// =========================
+// 距離計算（Haversine）
+// =========================
+function getDistance(lat1, lon1, lat2, lon2){
+
+    const R = 6371000;
+
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) *
+        Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+
+    const c = 2 * Math.atan2(
+        Math.sqrt(a),
+        Math.sqrt(1 - a)
+    );
+
+    return R * c;
+}
+
+// =========================
+// GPS認証
+// =========================
+function checkLocation(){
+
+    const result = document.getElementById("result");
+
+    result.innerHTML =
+    "<p class='info'>位置情報を取得しています...</p>";
+
+    if(!navigator.geolocation){
+
+        result.innerHTML =
+        "<p class='error'>この端末は位置情報に対応していません。</p>";
+
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+
+        function(position){
+
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+
+            const distance =
+            getDistance(
+                lat,
+                lng,
+                venueLat,
+                venueLng
+            );
+
+            if(distance <= ALLOW_DISTANCE){
+
+                const role =
+                document.getElementById("role").value;
+
+                localStorage.setItem(
+                    "gps_verified",
+                    "true"
+                );
+
+                result.innerHTML =
+                `
+                <p class="success">
+                    GPS認証成功
+                </p>
+
+                <p>
+                    会場から
+                    <strong>${Math.round(distance)}m</strong>
+                    の位置です。
+                </p>
+
+                <p>
+                    AWEROへ移動します...
+                </p>
+                `;
+
+                setTimeout(() => {
+
+                    if(role === "student"){
+                        window.location.href =
+                        STUDENT_URL;
+                    }else{
+                        window.location.href =
+                        PM_URL;
+                    }
+
+                },3000);
+
+            }else{
+
+                result.innerHTML =
+                `
+                <p class="error">
+                    GPS認証失敗
+                </p>
+
+                <p>
+                    現在地は会場から
+                    <strong>${Math.round(distance)}m</strong>
+                    離れています。
+                </p>
+
+                <p>
+                    会場から500m以内で
+                    認証してください。
+                </p>
+                `;
+            }
+
+        },
+
+        function(error){
+
+            let message =
+            "位置情報の取得に失敗しました。";
+
+            switch(error.code){
+
+                case error.PERMISSION_DENIED:
+                    message =
+                    "位置情報の利用が許可されていません。";
+                    break;
+
+                case error.POSITION_UNAVAILABLE:
+                    message =
+                    "位置情報を取得できません。";
+                    break;
+
+                case error.TIMEOUT:
+                    message =
+                    "位置情報取得がタイムアウトしました。";
+                    break;
+            }
+
+            result.innerHTML =
+            `<p class="error">${message}</p>`;
+        },
+
+        {
+            enableHighAccuracy:true,
+            timeout:10000,
+            maximumAge:0
+        }
+
+    );
+}
+
+</script>
+
+</body>
+</html>
